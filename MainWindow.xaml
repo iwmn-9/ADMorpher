@@ -1,0 +1,430 @@
+﻿<Window x:Class="ADMorpher.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:ADMorpher.Converters"
+        Title="ADMorpher — Active Directory 統合運用・セキュリティ統制スイート" 
+        Height="860" Width="1380"
+        WindowStartupLocation="CenterScreen"
+        Background="#F8FAFC"
+        FontFamily="Segoe UI, Meiryo, sans-serif">
+
+    <Window.Resources>
+        <converters:BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- Modern Button Style -->
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="#0284C7"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#0369A1"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Secondary Button Style -->
+        <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="#E2E8F0"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#CBD5E1"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Danger Button Style -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="#EF4444"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#DC2626"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Nav Tab Button Style -->
+        <Style x:Key="NavRadioButton" TargetType="RadioButton">
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="navBorder" Background="Transparent" CornerRadius="8" Padding="14,0">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="navBorder" Property="Background" Value="#F1F5F9"/>
+                                <Setter Property="Foreground" Value="#0F172A"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="navBorder" Property="Background" Value="#E0F2FE"/>
+                                <Setter Property="Foreground" Value="#0369A1"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="30"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="240"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left Navigation Sidebar -->
+            <Border Grid.Column="0" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="0,0,1,0" Padding="16">
+                <DockPanel LastChildFill="True">
+                    <!-- Brand Header -->
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,24">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Background="#0284C7" CornerRadius="8" Width="36" Height="36" Margin="0,0,10,0">
+                                <TextBlock Text="AD" Foreground="White" FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel>
+                                <TextBlock Text="ADMorpher" FontWeight="Bold" FontSize="18" Foreground="#0F172A"/>
+                                <TextBlock Text="IT Security &amp; Gov Suite" FontSize="11" Foreground="#64748B"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <Border Background="#F1F5F9" CornerRadius="6" Margin="0,14,0,0" Padding="8,6">
+                            <TextBlock Text="● Live AD / Mock 連動中" FontSize="11" Foreground="#059669" FontWeight="SemiBold"/>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Navigation Items -->
+                    <StackPanel DockPanel.Dock="Top">
+                        <RadioButton Content="🛡️  ダッシュボード (ヘルス)" Style="{StaticResource NavRadioButton}" IsChecked="True" Checked="NavTab_Checked" Tag="0"/>
+                        <RadioButton Content="🧹  アカウント衛生管理 (断捨離)" Style="{StaticResource NavRadioButton}" Checked="NavTab_Checked" Tag="1"/>
+                        <RadioButton Content="👥  権限・グループ可視化" Style="{StaticResource NavRadioButton}" Checked="NavTab_Checked" Tag="2"/>
+                        <RadioButton Content="📋  ライフサイクル管理" Style="{StaticResource NavRadioButton}" Checked="NavTab_Checked" Tag="3"/>
+                        <RadioButton Content="⚙️  GPOスマートマネージャー" Style="{StaticResource NavRadioButton}" Checked="NavTab_Checked" Tag="4"/>
+                        <RadioButton Content="🔑  JITローカルAdmin" Style="{StaticResource NavRadioButton}" Checked="NavTab_Checked" Tag="5"/>
+                        <RadioButton Content="📊  監査Excelレポート" Style="{StaticResource NavRadioButton}" Checked="NavTab_Checked" Tag="6"/>
+                    </StackPanel>
+
+                    <!-- Footer Info in Sidebar -->
+                    <StackPanel VerticalAlignment="Bottom">
+                        <TextBlock Text="Version 1.0.0 (Release)" FontSize="11" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- Main Content Area -->
+            <Grid Grid.Column="1" Margin="24">
+                
+                <!-- Tab 0: ダッシュボード & ヘルス -->
+                <Grid x:Name="Tab0_Health" Visibility="Visible">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                        <TextBlock Text="AD 統合ヘルスチェック &amp; ガバナンス状況" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                        <TextBlock Text="全ドメインコントローラー（DC）の死活、複製同期、DNS SRVレコード健全性、およびDHCPスコープ状況を常時可視化します。" FontSize="13" Foreground="#64748B" Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <!-- KPI Cards -->
+                    <Grid Grid.Row="1" Margin="0,0,0,20">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Score Card -->
+                        <Border Grid.Column="0" Background="#FFFFFF" CornerRadius="10" BorderBrush="#E2E8F0" BorderThickness="1" Padding="16" Margin="0,0,12,0">
+                            <StackPanel>
+                                <TextBlock Text="AD 健全性スコア" FontSize="12" FontWeight="SemiBold" Foreground="#64748B"/>
+                                <TextBlock x:Name="HealthScoreText" Text="88 / 100" FontSize="26" FontWeight="Bold" Foreground="#0284C7" Margin="0,6,0,0"/>
+                                <TextBlock Text="優良 (軽微なDNS要清掃)" FontSize="11" Foreground="#059669" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- DC Count Card -->
+                        <Border Grid.Column="1" Background="#FFFFFF" CornerRadius="10" BorderBrush="#E2E8F0" BorderThickness="1" Padding="16" Margin="0,0,12,0">
+                            <StackPanel>
+                                <TextBlock Text="稼働ドメインコントローラー" FontSize="12" FontWeight="SemiBold" Foreground="#64748B"/>
+                                <TextBlock x:Name="DcCountText" Text="2 台 (100% 稼働)" FontSize="26" FontWeight="Bold" Foreground="#0F172A" Margin="0,6,0,0"/>
+                                <TextBlock Text="Replication 同期遅延: 0秒" FontSize="11" Foreground="#059669" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- DNS Issue Card -->
+                        <Border Grid.Column="2" Background="#FFFFFF" CornerRadius="10" BorderBrush="#E2E8F0" BorderThickness="1" Padding="16" Margin="0,0,12,0">
+                            <StackPanel>
+                                <TextBlock Text="DNS ゾンビレコード検出" FontSize="12" FontWeight="SemiBold" Foreground="#64748B"/>
+                                <TextBlock x:Name="DnsIssueCountText" Text="1 件 検出" FontSize="26" FontWeight="Bold" Foreground="#EAB308" Margin="0,6,0,0"/>
+                                <TextBlock Text="旧廃止DCのSRV残存あり" FontSize="11" Foreground="#CA8A04" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- DHCP Alert Card -->
+                        <Border Grid.Column="3" Background="#FFFFFF" CornerRadius="10" BorderBrush="#E2E8F0" BorderThickness="1" Padding="16">
+                            <StackPanel>
+                                <TextBlock Text="DHCP スコープ使用率" FontSize="12" FontWeight="SemiBold" Foreground="#64748B"/>
+                                <TextBlock x:Name="DhcpAlertText" Text="92.5% (危険)" FontSize="26" FontWeight="Bold" Foreground="#EF4444" Margin="0,6,0,0"/>
+                                <TextBlock Text="本社Wi-Fi IP枯渇アラート" FontSize="11" Foreground="#DC2626" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- Main Data Table for DCs -->
+                    <Border Grid.Row="2" Background="#FFFFFF" CornerRadius="10" BorderBrush="#E2E8F0" BorderThickness="1" Padding="16">
+                        <DockPanel LastChildFill="True">
+                            <TextBlock DockPanel.Dock="Top" Text="ドメインコントローラー &amp; FSMOロール配置" FontWeight="Bold" FontSize="15" Foreground="#0F172A" Margin="0,0,0,12"/>
+                            <DataGrid x:Name="DcDataGrid" AutoGenerateColumns="False" IsReadOnly="True" BorderThickness="0" Background="Transparent" HeadersVisibility="Column" RowHeight="36">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="ホスト名" Binding="{Binding HostName}" Width="220"/>
+                                    <DataGridTextColumn Header="IPアドレス" Binding="{Binding IpAddress}" Width="120"/>
+                                    <DataGridTextColumn Header="サイト" Binding="{Binding SiteName}" Width="140"/>
+                                    <DataGridTextColumn Header="複製同期状況" Binding="{Binding ReplicationStatus}" Width="160"/>
+                                    <DataGridTextColumn Header="最終同期日時" Binding="{Binding LastSyncTime, StringFormat=\{0:yyyy/MM/dd HH:mm\}}" Width="140"/>
+                                    <DataGridTextColumn Header="FSMOマスター役割" Binding="{Binding FsmoRolesString}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Tab 1: アカウント衛生管理 (断捨離) -->
+                <Grid x:Name="Tab1_Hygiene" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                        <TextBlock Text="AD ゴーストバスター（休眠・脆弱アカウント断捨離）" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                        <TextBlock Text="休眠アカウント、パスワード無期限、脆弱Kerberos設定を洗い出し、所属グループを退避バックアップの上で安全に退避OUへ隔離します。" FontSize="13" Foreground="#64748B" Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <!-- Action Bar -->
+                    <Border Grid.Row="1" Background="#FFFFFF" CornerRadius="8" BorderBrush="#E2E8F0" BorderThickness="1" Padding="12" Margin="0,0,0,16">
+                        <DockPanel LastChildFill="False">
+                            <Button Content="🔍 休眠・脆弱アカウントを再スキャン" Style="{StaticResource ModernButton}" Click="ScanHygiene_Click" Margin="0,0,10,0"/>
+                            <Button Content="🛡️ 選択アカウントを安全退避（スナップショット保存）" Style="{StaticResource ModernButton}" Click="QuarantineSelected_Click" Margin="0,0,10,0"/>
+                            <Button Content="📁 退避スナップショット履歴を開く" Style="{StaticResource SecondaryButton}" Click="OpenSnapshotsDir_Click"/>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Grid -->
+                    <Border Grid.Row="2" Background="#FFFFFF" CornerRadius="10" BorderBrush="#E2E8F0" BorderThickness="1" Padding="16">
+                        <DataGrid x:Name="HygieneDataGrid" AutoGenerateColumns="False" IsReadOnly="True" BorderThickness="0" Background="Transparent" HeadersVisibility="Column" RowHeight="36">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="アカウント名 (SAM)" Binding="{Binding SamAccountName}" Width="160"/>
+                                <DataGridTextColumn Header="表示名" Binding="{Binding DisplayName}" Width="180"/>
+                                <DataGridTextColumn Header="種別" Binding="{Binding ObjectType}" Width="80"/>
+                                <DataGridTextColumn Header="休眠日数" Binding="{Binding InactiveDays}" Width="90"/>
+                                <DataGridTextColumn Header="パスワード無期限" Binding="{Binding PasswordNeverExpires}" Width="120"/>
+                                <DataGridTextColumn Header="事前認証不要(危険)" Binding="{Binding DoesNotRequirePreAuth}" Width="130"/>
+                                <DataGridTextColumn Header="リスクタグ" Binding="{Binding RiskTagsString}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+
+                <!-- Tab 2: 権限・グループ可視化 -->
+                <Grid x:Name="Tab2_Permissions" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                        <TextBlock Text="権限・グループネスト可視化 &amp; 特権監査" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                        <TextBlock Text="何重にもネストされたグループ構造を再帰展開し、循環参照の検知やユーザーの実効権限（実質アクセス権）を逆引きします。" FontSize="13" Foreground="#64748B" Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <Border Grid.Row="1" Background="#FFFFFF" CornerRadius="10" BorderBrush="#E2E8F0" BorderThickness="1" Padding="16">
+                        <DockPanel LastChildFill="True">
+                            <TextBlock DockPanel.Dock="Top" Text="階層ツリー &amp; 循環参照検知ビュー" FontWeight="Bold" FontSize="15" Foreground="#0F172A" Margin="0,0,0,12"/>
+                            <TreeView x:Name="GroupTreeView" BorderThickness="0" Background="Transparent">
+                                <TreeView.ItemTemplate>
+                                    <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                                        <StackPanel Orientation="Horizontal" Margin="0,4">
+                                            <TextBlock Text="👥 "/>
+                                            <TextBlock Text="{Binding GroupName}" FontWeight="SemiBold" Foreground="#0F172A"/>
+                                            <TextBlock Text=" (循環参照警告!)" Foreground="#EF4444" FontWeight="Bold" Visibility="{Binding HasCircularReference, Converter={StaticResource BoolToVis}}"/>
+                                        </StackPanel>
+                                    </HierarchicalDataTemplate>
+                                </TreeView.ItemTemplate>
+                            </TreeView>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Tab 3: ライフサイクル管理 -->
+                <Grid x:Name="Tab3_Lifecycle" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                        <TextBlock Text="アカウント ライフサイクル自動化（入社CSV / 退職オフボーディング）" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                        <TextBlock Text="新入社員台帳CSVからプレビュー付きで一括登録し、退職者発生時はワンクリックで安全オフボーディングを実行します。" FontSize="13" Foreground="#64748B" Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <Border Grid.Row="1" Background="#FFFFFF" CornerRadius="8" BorderBrush="#E2E8F0" BorderThickness="1" Padding="12" Margin="0,0,0,16">
+                        <DockPanel LastChildFill="False">
+                            <Button Content="📂 社員台帳CSVを読み込み" Style="{StaticResource ModernButton}" Click="LoadCsv_Click" Margin="0,0,10,0"/>
+                            <Button Content="⚡ 一括登録プレビュー検証" Style="{StaticResource SecondaryButton}" Click="PreviewImport_Click" Margin="0,0,10,0"/>
+                            <Button Content="🚀 登録実行 (シミュレーション)" Style="{StaticResource ModernButton}" Click="ExecuteImport_Click"/>
+                        </DockPanel>
+                    </Border>
+
+                    <Border Grid.Row="2" Background="#FFFFFF" CornerRadius="10" BorderBrush="#E2E8F0" BorderThickness="1" Padding="16">
+                        <DataGrid x:Name="CsvDataGrid" AutoGenerateColumns="False" IsReadOnly="True" BorderThickness="0" Background="Transparent" HeadersVisibility="Column" RowHeight="36">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="氏名" Binding="{Binding FullName}" Width="140"/>
+                                <DataGridTextColumn Header="部署" Binding="{Binding Department}" Width="120"/>
+                                <DataGridTextColumn Header="役職" Binding="{Binding Title}" Width="100"/>
+                                <DataGridTextColumn Header="アカウント名 (SAM)" Binding="{Binding SamAccountName}" Width="140"/>
+                                <DataGridTextColumn Header="UPN (メール)" Binding="{Binding UserPrincipalName}" Width="200"/>
+                                <DataGridTextColumn Header="初期パスワード" Binding="{Binding InitialPassword}" Width="160"/>
+                                <DataGridTextColumn Header="配置先OU" Binding="{Binding TargetOu}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+
+                <!-- Tab 4: GPOスマートマネージャー -->
+                <Grid x:Name="Tab4_Gpo" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                        <TextBlock Text="GPO スマートマネージャー（有効設定一覧 &amp; Computer ⇔ User 変換）" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                        <TextBlock Text="深すぎる階層ツリーを排除し、実際に変更されている設定値だけをフラット表示。コンピューター構成の設定を安全判定付きでユーザー構成へワンクリック移植します。" FontSize="13" Foreground="#64748B" Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <Border Grid.Row="1" Background="#FFFFFF" CornerRadius="8" BorderBrush="#E2E8F0" BorderThickness="1" Padding="12" Margin="0,0,0,16">
+                        <DockPanel LastChildFill="False">
+                            <Button Content="🔄 コンピューター構成 ➔ ユーザー構成へ安全移植" Style="{StaticResource ModernButton}" Click="ConvertGpo_Click" Margin="0,0,10,0"/>
+                            <Button Content="📦 GPOバックアップ保存" Style="{StaticResource SecondaryButton}" Click="BackupGpo_Click"/>
+                        </DockPanel>
+                    </Border>
+
+                    <Border Grid.Row="2" Background="#FFFFFF" CornerRadius="10" BorderBrush="#E2E8F0" BorderThickness="1" Padding="16">
+                        <DataGrid x:Name="GpoDataGrid" AutoGenerateColumns="False" IsReadOnly="True" BorderThickness="0" Background="Transparent" HeadersVisibility="Column" RowHeight="36">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="スコープ" Binding="{Binding Scope}" Width="90"/>
+                                <DataGridTextColumn Header="カテゴリ" Binding="{Binding Category}" Width="160"/>
+                                <DataGridTextColumn Header="ポリシー名" Binding="{Binding FriendlyName}" Width="220"/>
+                                <DataGridTextColumn Header="レジストリキー" Binding="{Binding KeyPath}" Width="260"/>
+                                <DataGridTextColumn Header="値名" Binding="{Binding ValueName}" Width="160"/>
+                                <DataGridTextColumn Header="設定値" Binding="{Binding ValueData}" Width="120"/>
+                                <DataGridTextColumn Header="User移植可否" Binding="{Binding ExclusionReason}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+
+                <!-- Tab 5: JITローカルAdmin -->
+                <Grid x:Name="Tab5_Jit" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                        <TextBlock Text="JIT ローカルAdminコンシェルジュ（Windows LAPS連携）" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                        <TextBlock Text="クライアントPCのキッティングや障害対応時のみ、ワンタイムでローカル管理者パスワードを発行・利用。作業完了後は即時再ローテーションして安全を保ちます。" FontSize="13" Foreground="#64748B" Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <Border Grid.Row="1" Background="#FFFFFF" CornerRadius="8" BorderBrush="#E2E8F0" BorderThickness="1" Padding="12" Margin="0,0,0,16">
+                        <DockPanel LastChildFill="False">
+                            <Button Content="👁️ 選択端末のパスワードを表示・安全コピー" Style="{StaticResource ModernButton}" Click="RevealJitPassword_Click" Margin="0,0,10,0"/>
+                            <Button Content="🔒 作業完了（即時パスワード再ローテーション強制）" Style="{StaticResource DangerButton}" Click="ForceRotateJit_Click"/>
+                        </DockPanel>
+                    </Border>
+
+                    <Border Grid.Row="2" Background="#FFFFFF" CornerRadius="10" BorderBrush="#E2E8F0" BorderThickness="1" Padding="16">
+                        <DataGrid x:Name="JitDataGrid" AutoGenerateColumns="False" IsReadOnly="True" BorderThickness="0" Background="Transparent" HeadersVisibility="Column" RowHeight="36">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="コンピューター名" Binding="{Binding ComputerName}" Width="160"/>
+                                <DataGridTextColumn Header="OS" Binding="{Binding OperatingSystem}" Width="200"/>
+                                <DataGridTextColumn Header="管理者アカウント" Binding="{Binding AdminAccountName}" Width="140"/>
+                                <DataGridTextColumn Header="JIT一時パスワード" Binding="{Binding DisplayPassword}" Width="180"/>
+                                <DataGridTextColumn Header="有効期限" Binding="{Binding PasswordExpiration, StringFormat=\{0:yyyy/MM/dd HH:mm\}}" Width="160"/>
+                                <DataGridTextColumn Header="配置先OU" Binding="{Binding OuPath}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+
+                <!-- Tab 6: 監査Excelレポート -->
+                <Grid x:Name="Tab6_Report" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                        <TextBlock Text="J-SOX &amp; 親会社監査提出用 美麗Excelレポート出力" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                        <TextBlock Text="監査法人やグループ親会社のセキュリティ監査基準を完全に満たす「特権ID棚卸し台帳」「休眠ID台帳」「GPO一覧」を1クリックで出力します。" FontSize="13" Foreground="#64748B" Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <Border Grid.Row="1" Background="#FFFFFF" CornerRadius="10" BorderBrush="#E2E8F0" BorderThickness="1" Padding="24">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="540">
+                            <Border Background="#E0F2FE" CornerRadius="50" Width="80" Height="80" HorizontalAlignment="Center" Margin="0,0,0,20">
+                                <TextBlock Text="📊" FontSize="36" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="1クリックで完全な監査証跡Excelを出力" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Foreground="#0F172A" Margin="0,0,0,8"/>
+                            <TextBlock Text="サマリー、休眠・要注意アカウント台帳、GPO設定一覧、JIT端末一覧の全シートをClosedXMLで美麗フォーマット自動生成します。" TextWrapping="Wrap" TextAlignment="Center" FontSize="13" Foreground="#64748B" Margin="0,0,0,24"/>
+
+                            <Button Content="📑 監査提出用 Excelレポートを今すぐ出力" Style="{StaticResource ModernButton}" Height="44" FontSize="15" Click="ExportExcel_Click"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+            </Grid>
+        </Grid>
+
+        <!-- Bottom Global Status Bar -->
+        <Border Grid.Row="1" Background="#0F172A" Padding="14,0">
+            <DockPanel LastChildFill="True">
+                <TextBlock x:Name="StatusBarText" Text="準備完了 — ADMorpher v1.0.0 (モック環境連動中)" Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center"/>
+                <TextBlock Text="0 警告・0 エラー" Foreground="#059669" FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

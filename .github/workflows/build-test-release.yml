@@ -1,0 +1,45 @@
+﻿name: Build, Test & Release
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET 8
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore ADMorpher.csproj
+
+    - name: Build Debug & verify 0 warnings
+      run: dotnet build ADMorpher.csproj -c Debug --no-restore -warnaserror
+
+    - name: Run Regression Tests
+      run: |
+        $exe = ".\bin\Debug\net8.0-windows\win-x64\ADMorpher.exe"
+        & $exe --test-regression
+
+    - name: Publish Single-File Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        dotnet publish ADMorpher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish
+        Compress-Archive -Path ./publish/ADMorpher.exe -DestinationPath ./ADMorpher-win-x64.zip
+
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          ./publish/ADMorpher.exe
+          ./ADMorpher-win-x64.zip
+        generate_release_notes: true

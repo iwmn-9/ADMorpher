@@ -1,0 +1,27 @@
+﻿## Build & Output
+bin/
+obj/
+*.exe
+*.dll
+*.pdb
+*.msi
+*.zip
+
+## Visual Studio & IDE
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## OS Generated
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+## ADMorpher Local Snapshots / Logs / Temp
+*.log
+_test_output/
+_temp_backups/
