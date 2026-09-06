@@ -38,7 +38,6 @@ namespace ADMorpher.Services
                 FsmoRoles = new List<string> { "Schema Master", "Domain Naming Master" }
             });
 
-            // ゾンビDNSレコードの検出例（撤去済み旧DCのSRV残骸）
             report.DnsIssues.Add(new DnsCheckResult
             {
                 RecordType = "SRV",
@@ -54,7 +53,7 @@ namespace ADMorpher.Services
                 Name = "本社 クライアントPC Wi-Fi / 有線",
                 SubnetMask = "255.255.255.0",
                 TotalAddresses = 240,
-                InUseAddresses = 222 // 92.5% 危険アラート
+                InUseAddresses = 222
             });
 
             report.DhcpScopes.Add(new DhcpScopeInfo
@@ -69,9 +68,75 @@ namespace ADMorpher.Services
             return report;
         }
 
+        public List<DnsRecordItem> GetMockDnsRecords()
+        {
+            return new List<DnsRecordItem>
+            {
+                new DnsRecordItem
+                {
+                    HostName = "_ldap._tcp.dc._msdcs.corp.example.local",
+                    RecordType = "SRV",
+                    TargetValue = "DC-OLD-2012.corp.example.local:389",
+                    Timestamp = DateTime.Now.AddDays(-600),
+                    IsZombieDc = true
+                },
+                new DnsRecordItem
+                {
+                    HostName = "_ldap._tcp.dc._msdcs.corp.example.local",
+                    RecordType = "SRV",
+                    TargetValue = "DC01.corp.example.local:389",
+                    Timestamp = DateTime.Now.AddDays(-1),
+                    IsZombieDc = false
+                },
+                new DnsRecordItem
+                {
+                    HostName = "PC-SALES-019.corp.example.local",
+                    RecordType = "A",
+                    TargetValue = "192.168.20.145",
+                    Timestamp = DateTime.Now.AddDays(-320),
+                    IsScavengeCandidate = true
+                },
+                new DnsRecordItem
+                {
+                    HostName = "fileserver01.corp.example.local",
+                    RecordType = "A",
+                    TargetValue = "192.168.10.50",
+                    Timestamp = DateTime.Now.AddDays(-2),
+                    IsScavengeCandidate = false
+                }
+            };
+        }
+
+        public List<DhcpReservationItem> GetMockDhcpReservations()
+        {
+            return new List<DhcpReservationItem>
+            {
+                new DhcpReservationItem
+                {
+                    ScopeId = "192.168.20.0",
+                    IpAddress = "192.168.20.201",
+                    MacAddress = "00-15-5D-12-34-56",
+                    ReservationName = "Old-Color-MFP-Ricoh (撤去済)",
+                    Description = "2023年撤去複合機。固定IPが解放されずに残存",
+                    LastActiveDate = DateTime.Now.AddDays(-240),
+                    IsOrphaned = true
+                },
+                new DhcpReservationItem
+                {
+                    ScopeId = "192.168.20.0",
+                    IpAddress = "192.168.20.205",
+                    MacAddress = "00-15-5D-78-9A-BC",
+                    ReservationName = "HQ-Reception-iPad",
+                    Description = "総合受付用端末",
+                    LastActiveDate = DateTime.Now.AddDays(-1),
+                    IsOrphaned = false
+                }
+            };
+        }
+
         public List<AccountHygieneItem> GetMockHygieneItems()
         {
-            var list = new List<AccountHygieneItem>
+            return new List<AccountHygieneItem>
             {
                 new AccountHygieneItem
                 {
@@ -95,7 +160,7 @@ namespace ADMorpher.Services
                     IsEnabled = true,
                     LastLogonDate = DateTime.Now.AddDays(-5),
                     PasswordNeverExpires = true,
-                    DoesNotRequirePreAuth = true, // AS-REP Roasting 標的
+                    DoesNotRequirePreAuth = true,
                     OuPath = "OU=ServiceAccounts,DC=corp,DC=example,DC=local",
                     RiskTags = new List<string> { "Kerberos事前認証不要(危険)", "パスワード無期限" }
                 },
@@ -126,7 +191,6 @@ namespace ADMorpher.Services
                     RiskTags = new List<string> { "休眠PC(450日未ログオン)" }
                 }
             };
-            return list;
         }
 
         public GroupNestNode GetMockGroupNestHierarchy()
@@ -161,7 +225,6 @@ namespace ADMorpher.Services
                 DirectMembers = new List<string> { "suzuki.dev" }
             };
 
-            // 循環参照テスト用ノード
             var circularNode = new GroupNestNode
             {
                 GroupName = "Circular-Ref-Group-A",
@@ -188,8 +251,16 @@ namespace ADMorpher.Services
                 DisplayName = "Corp-Security-Baseline-2026",
                 Status = "AllEnabled",
                 LinkedOus = "OU=Tokyo-HQ,DC=corp,DC=example,DC=local",
-                ActivePolicyCount = 4
+                ActivePolicyCount = 3,
+                SecurityFilteringGroups = new List<string> { "Domain Computers", "Domain Admins" }
             };
+            gpo1.LinkTargets.Add(new GpoLinkTarget
+            {
+                OuDisplayName = "東京本社 (Tokyo-HQ)",
+                OuDistinguishedName = "OU=Tokyo-HQ,DC=corp,DC=example,DC=local",
+                IsEnabled = true,
+                IsEnforced = false
+            });
             gpo1.Policies.Add(new GpoPolicyEntry
             {
                 Scope = "Machine",
@@ -229,34 +300,12 @@ namespace ADMorpher.Services
             });
 
             gpos.Add(gpo1);
-
-            var gpo2 = new GpoSummary
-            {
-                DisplayName = "User-Desktop-Customization",
-                Status = "AllEnabled",
-                LinkedOus = "OU=Sales,OU=Users,DC=corp,DC=example,DC=local",
-                ActivePolicyCount = 2
-            };
-            gpo2.Policies.Add(new GpoPolicyEntry
-            {
-                Scope = "User",
-                Category = "デスクトップ",
-                KeyPath = @"Software\Microsoft\Windows\CurrentVersion\Policies\System",
-                ValueName = "Wallpaper",
-                Type = 1,
-                ValueData = @"\\corp.example.local\sysvol\corp.example.local\Policies\Wallpaper.jpg",
-                FriendlyName = "社内標準壁紙設定",
-                Explanation = "全社統一壁紙の配布",
-                CanConvertToUser = true
-            });
-            gpos.Add(gpo2);
-
             return gpos;
         }
 
         public List<JitDevice> GetMockJitDevices()
         {
-            var devices = new List<JitDevice>
+            return new List<JitDevice>
             {
                 new JitDevice
                 {
@@ -275,21 +324,10 @@ namespace ADMorpher.Services
                     OuPath = "OU=Dev,OU=Computers,DC=corp,DC=example,DC=local",
                     AdminAccountName = "LapsLocalAdmin",
                     CurrentLapsPassword = "aB3*cD9!eF5@gH1#jK",
-                    PasswordExpiration = DateTime.Now.AddHours(2), // 間もなく期限
-                    IsMasked = true
-                },
-                new JitDevice
-                {
-                    ComputerName = "PC-EXEC-001",
-                    OperatingSystem = "Windows 11 Enterprise 23H2",
-                    OuPath = "OU=Exec,OU=Computers,DC=corp,DC=example,DC=local",
-                    AdminAccountName = "LapsLocalAdmin",
-                    CurrentLapsPassword = "zY8&xW4^vU2%tS0$rQ",
-                    PasswordExpiration = DateTime.Now.AddDays(25),
+                    PasswordExpiration = DateTime.Now.AddHours(2),
                     IsMasked = true
                 }
             };
-            return devices;
         }
     }
 }

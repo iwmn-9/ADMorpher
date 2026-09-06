@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -18,8 +18,11 @@ namespace ADMorpher
         private readonly AccountHygieneService _accountHygieneService = new();
         private readonly LifecycleService _lifecycleService = new();
         private readonly ExcelAuditReportService _excelReportService = new();
+        private readonly DnsDhcpService _dnsDhcpService = new();
 
         private AdHealthReport _healthReport = new();
+        private List<DnsRecordItem> _dnsRecords = new();
+        private List<DhcpReservationItem> _dhcpReservations = new();
         private List<AccountHygieneItem> _hygieneItems = new();
         private List<GpoSummary> _gpos = new();
         private List<JitDevice> _jitDevices = new();
@@ -33,6 +36,8 @@ namespace ADMorpher
         private void LoadInitialData()
         {
             _healthReport = _mockAdService.GetMockHealthReport();
+            _dnsRecords = _mockAdService.GetMockDnsRecords();
+            _dhcpReservations = _mockAdService.GetMockDhcpReservations();
             _hygieneItems = _mockAdService.GetMockHygieneItems();
             _gpos = _mockAdService.GetMockGpos();
             _jitDevices = _mockAdService.GetMockJitDevices();
@@ -40,23 +45,28 @@ namespace ADMorpher
             // Tab 0: ヘルスチェック
             HealthScoreText.Text = $"{_healthReport.HealthScore} / 100";
             DcCountText.Text = $"{_healthReport.DomainControllers.Count} 台 (100% 稼働)";
-            DnsIssueCountText.Text = $"{_healthReport.DnsIssues.Count} 件 検出";
             DcDataGrid.ItemsSource = _healthReport.DomainControllers;
 
-            // Tab 1: アカウント衛生管理
+            // Tab 1: DNS & DHCP
+            DnsDataGrid.ItemsSource = _dnsRecords;
+            DhcpDataGrid.ItemsSource = _dhcpReservations;
+
+            // Tab 2: アカウント衛生管理
             HygieneDataGrid.ItemsSource = _hygieneItems;
 
-            // Tab 2: 権限・グループ可視化
+            // Tab 3: 権限・グループ可視化
             var rootGroup = _mockAdService.GetMockGroupNestHierarchy();
             GroupTreeView.ItemsSource = new List<GroupNestNode> { rootGroup };
 
-            // Tab 4: GPO
+            // Tab 5: GPO
             if (_gpos.Count > 0)
             {
                 GpoDataGrid.ItemsSource = _gpos[0].Policies;
+                GpoLinkedOuText.Text = _gpos[0].LinkedOus;
+                GpoFilterGroupText.Text = _gpos[0].SecurityFiltersString;
             }
 
-            // Tab 5: JIT
+            // Tab 6: JIT
             JitDataGrid.ItemsSource = _jitDevices;
 
             SetStatus("データ読み込み完了 — ドメイン健全性スコア: 88/100");
@@ -68,12 +78,13 @@ namespace ADMorpher
             int tag = int.Parse(rb.Tag.ToString()!);
 
             Tab0_Health.Visibility = tag == 0 ? Visibility.Visible : Visibility.Collapsed;
-            Tab1_Hygiene.Visibility = tag == 1 ? Visibility.Visible : Visibility.Collapsed;
-            Tab2_Permissions.Visibility = tag == 2 ? Visibility.Visible : Visibility.Collapsed;
-            Tab3_Lifecycle.Visibility = tag == 3 ? Visibility.Visible : Visibility.Collapsed;
-            Tab4_Gpo.Visibility = tag == 4 ? Visibility.Visible : Visibility.Collapsed;
-            Tab5_Jit.Visibility = tag == 5 ? Visibility.Visible : Visibility.Collapsed;
-            Tab6_Report.Visibility = tag == 6 ? Visibility.Visible : Visibility.Collapsed;
+            Tab1_DnsDhcp.Visibility = tag == 1 ? Visibility.Visible : Visibility.Collapsed;
+            Tab2_Hygiene.Visibility = tag == 2 ? Visibility.Visible : Visibility.Collapsed;
+            Tab3_Permissions.Visibility = tag == 3 ? Visibility.Visible : Visibility.Collapsed;
+            Tab4_Lifecycle.Visibility = tag == 4 ? Visibility.Visible : Visibility.Collapsed;
+            Tab5_Gpo.Visibility = tag == 5 ? Visibility.Visible : Visibility.Collapsed;
+            Tab6_Jit.Visibility = tag == 6 ? Visibility.Visible : Visibility.Collapsed;
+            Tab7_Report.Visibility = tag == 7 ? Visibility.Visible : Visibility.Collapsed;
         }
 
         // === Tab 1: アカウント衛生管理 アクション ===
@@ -186,7 +197,87 @@ namespace ADMorpher
             MessageBox.Show($"端末 {selected.ComputerName} のローカル管理者パスワードを即座に再ローテーションしました。\nさっき使ったパスワードは無効化され、次回通信時に新しいパスワードへ更新されます（Pass-the-Hash攻撃リスクを完全遮断）。", "即時ローテーション完了", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
-        // === Tab 6: 監査Excel出力 ===
+        // === Tab 1: DNS & DHCP アクション ===
+        private void SimulateDnsCleanup_Click(object sender, RoutedEventArgs e)
+        {
+            string backupDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ADMorpher", "DnsBackups");
+            var (removed, backupPath) = _dnsDhcpService.SimulateZombieDnsCleanup(_dnsRecords, backupDir);
+
+            // シミュレーション: ゾンビをリストから非表示化
+            _dnsRecords = _dnsRecords.Where(r => !r.IsZombieDc).ToList();
+            DnsDataGrid.ItemsSource = null;
+            DnsDataGrid.ItemsSource = _dnsRecords;
+
+            SetStatus($"DNS安全削除完了: {removed.Count} 件のゾンビSRVを隔離しゾーンバックアップを保存しました。");
+            MessageBox.Show($"【DNSゾンビSRV安全削除シミュレーション完了】\n\n" +
+                            $"・検出・削除対象: {removed.Count} 件 (旧廃止DC残骸)\n" +
+                            $"・事前ゾーンバックアップ: {backupPath}\n\n" +
+                            $"クライアントPCの認証タイムアウト要因となるゾンビレコードが安全に除外されました。", "DNS安全削除", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void OpenDnsBackupDir_Click(object sender, RoutedEventArgs e)
+        {
+            string backupDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ADMorpher", "DnsBackups");
+            Directory.CreateDirectory(backupDir);
+            Process.Start(new ProcessStartInfo("explorer.exe", backupDir) { UseShellExecute = true });
+        }
+
+        private void SimulateDhcpReclaim_Click(object sender, RoutedEventArgs e)
+        {
+            var (released, count) = _dnsDhcpService.SimulateDhcpReservationCleanup(_dhcpReservations);
+            _dhcpReservations = _dhcpReservations.Where(r => !r.IsOrphaned).ToList();
+            DhcpDataGrid.ItemsSource = null;
+            DhcpDataGrid.ItemsSource = _dhcpReservations;
+
+            SetStatus($"DHCP解放完了: {count} 件の放置固定IP予約を解放しIPプールへ戻しました。");
+            MessageBox.Show($"【DHCP放置固定予約の解放完了】\n\n" +
+                            $"・解放された予約数: {count} 件 (撤去済み機器の残骸)\n" +
+                            $"・回収されたIPアドレス: 192.168.20.201\n\n" +
+                            $"枯渇寸前だったDHCPスコープに空きIPが正常に返却されました。", "DHCP予約解放", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        // === Tab 5: GPO リンク & フィルター アクション ===
+        private void ConfigureGpoLink_Click(object sender, RoutedEventArgs e)
+        {
+            if (_gpos.Count == 0) return;
+            var targetGpo = _gpos[0];
+
+            string res = _gpoManagerService.SimulateGpoLinkChange(targetGpo, "OU=Osaka-Branch,DC=corp,DC=example,DC=local", "大阪支社", true, false);
+            _gpoManagerService.SimulateSecurityFiltering(targetGpo, "Sales-Workstations", true);
+
+            GpoLinkedOuText.Text = "OU=Tokyo-HQ, OU=Osaka-Branch";
+            GpoFilterGroupText.Text = string.Join(", ", targetGpo.SecurityFilteringGroups);
+
+            SetStatus("GPO配備構成完了: リンク先OUとセキュリティフィルターを更新しました。");
+            MessageBox.Show($"【GPO配備シミュレーション】\n\n" +
+                            $"・リンク先OU追加: 大阪支社 (OU=Osaka-Branch)\n" +
+                            $"・適用セキュリティフィルター: Sales-Workstations グループを追加\n\n" +
+                            $"これにより、営業部門の特定端末のみにポリシーが安全に適用される設定となりました。", "GPO配備シミュレーション", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        // === Tab 6: LAPS 自動配備ウィザード アクション ===
+        private void DeployLapsWizard_Click(object sender, RoutedEventArgs e)
+        {
+            var config = new LapsDeploymentConfig
+            {
+                TargetOu = "OU=Computers,DC=corp,DC=example,DC=local",
+                AdminAccountName = "LapsLocalAdmin",
+                PasswordLength = 18,
+                PasswordAgeDays = 14,
+                AuthorizedAuditorGroup = "Domain Admins"
+            };
+
+            var (summary, script, gpo) = _jitAdminService.SimulateLapsDeployment(config);
+
+            string scriptPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ADMorpher", "LAPS_Deploy_Script.ps1");
+            Directory.CreateDirectory(Path.GetDirectoryName(scriptPath)!);
+            File.WriteAllText(scriptPath, script);
+
+            SetStatus("LAPS配備シミュレーション完了: AD権限ACEおよび推奨GPOを構成しました。");
+            MessageBox.Show($"{summary}\n\n【実機適用PowerShellスクリプトを自動生成しました】\n保存先: {scriptPath}", "LAPS自動配備ウィザード", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        // === Tab 7: 監査Excel出力 ===
         private void ExportExcel_Click(object sender, RoutedEventArgs e)
         {
             string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);

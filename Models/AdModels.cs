@@ -10,7 +10,7 @@ namespace ADMorpher.Models
         public string DomainName { get; set; } = "corp.example.local";
         public string ForestFunctionalLevel { get; set; } = "Windows Server 2016";
         public string DomainFunctionalLevel { get; set; } = "Windows Server 2016";
-        public int HealthScore { get; set; } = 85; // 0-100
+        public int HealthScore { get; set; } = 88; // 0-100
         public List<DcInfo> DomainControllers { get; set; } = new();
         public List<DnsCheckResult> DnsIssues { get; set; } = new();
         public List<DhcpScopeInfo> DhcpScopes { get; set; } = new();
@@ -46,6 +46,31 @@ namespace ADMorpher.Models
         public int InUseAddresses { get; set; } = 200;
         public double UsagePercentage => TotalAddresses > 0 ? Math.Round((double)InUseAddresses / TotalAddresses * 100, 1) : 0;
         public string Status => UsagePercentage >= 90 ? "危険 (枯渇寸前)" : UsagePercentage >= 80 ? "注意" : "正常";
+    }
+
+    // === 新設: DNS & DHCP 詳細モデル ===
+    public class DnsRecordItem
+    {
+        public string ZoneName { get; set; } = "corp.example.local";
+        public string HostName { get; set; } = "";
+        public string RecordType { get; set; } = "A"; // A, SRV, CNAME, PTR
+        public string TargetValue { get; set; } = "";
+        public DateTime? Timestamp { get; set; }
+        public bool IsZombieDc { get; set; } = false;
+        public bool IsScavengeCandidate { get; set; } = false; // 古い未更新レコード
+        public string StatusNote => IsZombieDc ? "⚠️ 廃止DC残骸 (要削除)" : IsScavengeCandidate ? "⚠️ 長期未更新 (廃棄PC候補)" : "正常";
+    }
+
+    public class DhcpReservationItem
+    {
+        public string ScopeId { get; set; } = "192.168.20.0";
+        public string IpAddress { get; set; } = "";
+        public string MacAddress { get; set; } = "";
+        public string ReservationName { get; set; } = "";
+        public string Description { get; set; } = "";
+        public DateTime? LastActiveDate { get; set; }
+        public bool IsOrphaned { get; set; } = false; // 180日以上未応答
+        public string StatusNote => IsOrphaned ? "⚠️ 放置予約 (解放推奨)" : "アクティブ";
     }
 
     // === Tab 2: アカウント衛生管理 (断捨離) ===
@@ -122,21 +147,32 @@ namespace ADMorpher.Models
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public string DisplayName { get; set; } = "";
-        public string Status { get; set; } = "AllEnabled"; // AllEnabled, UserDisabled, MachineDisabled, Disabled
+        public string Status { get; set; } = "AllEnabled";
         public int UserVersion { get; set; } = 1;
         public int MachineVersion { get; set; } = 1;
         public string LinkedOus { get; set; } = "";
         public int ActivePolicyCount { get; set; } = 0;
         public List<GpoPolicyEntry> Policies { get; set; } = new();
+        public List<GpoLinkTarget> LinkTargets { get; set; } = new();
+        public List<string> SecurityFilteringGroups { get; set; } = new();
+        public string SecurityFiltersString => SecurityFilteringGroups.Count > 0 ? string.Join(", ", SecurityFilteringGroups) : "Authenticated Users (全ユーザー・全PC)";
+    }
+
+    public class GpoLinkTarget
+    {
+        public string OuDisplayName { get; set; } = "";
+        public string OuDistinguishedName { get; set; } = "";
+        public bool IsEnabled { get; set; } = true;
+        public bool IsEnforced { get; set; } = false;
     }
 
     public class GpoPolicyEntry
     {
-        public string Scope { get; set; } = "Machine"; // Machine or User
+        public string Scope { get; set; } = "Machine";
         public string Category { get; set; } = "管理用テンプレート";
         public string KeyPath { get; set; } = "";
         public string ValueName { get; set; } = "";
-        public uint Type { get; set; } = 4; // REG_DWORD, REG_SZ etc
+        public uint Type { get; set; } = 4;
         public object? ValueData { get; set; }
         public string FriendlyName { get; set; } = "";
         public string Explanation { get; set; } = "";
@@ -144,7 +180,7 @@ namespace ADMorpher.Models
         public string ExclusionReason { get; set; } = "";
     }
 
-    // === Tab 6: JITローカル管理者 ===
+    // === Tab 6: JITローカル管理者 & LAPS有効化 ===
     public class JitDevice
     {
         public string ComputerName { get; set; } = "";
@@ -156,5 +192,15 @@ namespace ADMorpher.Models
         public bool IsExpired => DateTime.Now >= PasswordExpiration;
         public bool IsMasked { get; set; } = true;
         public string DisplayPassword => IsMasked ? "••••••••••••••••" : CurrentLapsPassword;
+    }
+
+    public class LapsDeploymentConfig
+    {
+        public string TargetOu { get; set; } = "OU=Computers,DC=corp,DC=example,DC=local";
+        public string AdminAccountName { get; set; } = "LapsLocalAdmin";
+        public int PasswordLength { get; set; } = 18;
+        public int PasswordAgeDays { get; set; } = 14;
+        public bool RequireComplexity { get; set; } = true;
+        public string AuthorizedAuditorGroup { get; set; } = "IT-Helpdesk-Admins";
     }
 }

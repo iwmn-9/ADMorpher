@@ -1,4 +1,4 @@
-﻿# ADMorpher — AI Agent & Developer Architecture Guide
+# ADMorpher — AI Agent & Developer Architecture Guide
 
 > **【AIメンテナ・自律継続規約】**  
 > 本プロジェクトは「自律完遂（自ら調査・修正・検証まで行い、完成状態で返す）」を基本方針とする。  
@@ -30,15 +30,16 @@ UI層は `MainWindow.xaml` / `MainWindow.xaml.cs` に集約され、内部ロジ
 
 | 機能領域 / タブ | XAML (MainWindow.xaml) | C# コードビハインド | 関連 Service / Model | 責務と概要 |
 | :--- | :--- | :--- | :--- | :--- |
-| **全体共通 / 左サイドバー** | `DockPanel` (L108-144) | `NavTab_Checked` | `Converters/ValueConverters.cs` | 7タブ切り替えナビゲーション、ステータスバー表示 |
-| **Tab 1: ヘルスチェック**<br>(DC / DNS / DHCP) | `Tab0_Health` (L150-244) | `LoadInitialData` | `AdHealthReport`<br>`DcInfo`<br>`MockAdService.cs` | 全DCの死活・複製状況・FSMO、AD統合DNSのゾンビDCレコード検出、DHCPスコープ枯渇アラート |
-| **Tab 2: アカウント衛生管理**<br>(ADゴーストバスター) | `Tab1_Hygiene` (L246-288) | `ScanHygiene_Click`<br>`QuarantineSelected_Click`<br>`OpenSnapshotsDir_Click` | `AccountHygieneService.cs`<br>`AccountHygieneItem` | 90/180日休眠アカウント、PasswordNeverExpires、AS-REP Roasting脆弱アカウントの検出、JSONスナップショット退避 |
-| **Tab 3: 権限・グループ可視化**<br>(Nested Permissions) | `Tab2_Permissions` (L290-322) | `LoadInitialData` | `GroupNestNode`<br>`EffectivePermissionUser` | グループ階層ツリーの再帰展開、循環参照（A ➔ B ➔ A）の自動検知と赤色警告 |
-| **Tab 4: ライフサイクル管理**<br>(Lifecycle Manager) | `Tab3_Lifecycle` (L324-367) | `LoadCsv_Click`<br>`PreviewImport_Click`<br>`ExecuteImport_Click` | `LifecycleService.cs`<br>`LifecycleImportRow` | 社員台帳CSV読み込み、命名規則重複チェック、安全な初期パスワード自動付与、退職者オフボーディング |
-| **Tab 5: GPOスマートマネージャー**<br>(GPO Smart Studio) | `Tab4_Gpo` (L369-411) | `ConvertGpo_Click`<br>`BackupGpo_Click` | `GpoManagerService.cs`<br>`GpoSummary`<br>`GpoPolicyEntry` | 有効設定のフラット一覧、`registry.pol` PRegバイナリパース、Computer ➔ User変換（ブラックリスト除外判定） |
-| **Tab 6: JITローカルAdmin**<br>(LAPS JIT Concierge) | `Tab5_Jit` (L413-455) | `RevealJitPassword_Click`<br>`ForceRotateJit_Click` | `JitAdminService.cs`<br>`JitDevice` | LAPSパスワードのマスク表示・安全コピー、作業後の即時再ローテーション強制（Pass-the-Hash防御） |
-| **Tab 7: 監査Excelレポート**<br>(J-SOX Audit Report) | `Tab6_Report` (L457-488) | `ExportExcel_Click` | `ExcelAuditReportService.cs` | ClosedXMLベースのJ-SOX・親会社監査提出用 美麗Excel台帳ワンクリック出力 |
-| **ヘッドレス自動テスト** | ― | `App.xaml.cs` (`--test-regression`) | `RegressionTestService.cs` | 6大回帰テスト（PRegバイナリ可逆性、変換除外、JITエントロピー、退避完全性、循環参照検知、Excel生成）の自動実行 |
+| **全体共通 / 左サイドバー** | `DockPanel` (L108-144) | `NavTab_Checked` | `Converters/ValueConverters.cs` | 8タブ切り替えナビゲーション、ステータスバー表示 |
+| **Tab 1: ヘルスチェック**<br>(DC Health) | `Tab0_Health` | `LoadInitialData` | `AdHealthReport`<br>`DcInfo`<br>`MockAdService.cs` | 全DCの死活・複製状況・FSMOロール配置、健全性スコア表示 |
+| **Tab 2: DNS & DHCP 基盤**<br>(Net Foundation) | `Tab1_DnsDhcp` | `SimulateDnsCleanup_Click`<br>`SimulateDhcpReclaim_Click` | `DnsDhcpService.cs`<br>`DnsRecordItem`<br>`DhcpReservationItem` | ゾンビDCレコード（SRV）の安全削除シミュレーション、長期未更新Aレコード棚卸し、DHCPスコープ枯渇対策 & 放置固定予約解放 |
+| **Tab 3: アカウント衛生管理**<br>(ADゴーストバスター) | `Tab2_Hygiene` | `ScanHygiene_Click`<br>`QuarantineSelected_Click`<br>`OpenSnapshotsDir_Click` | `AccountHygieneService.cs`<br>`AccountHygieneItem` | 90/180日休眠アカウント、PasswordNeverExpires、AS-REP Roasting脆弱アカウントの検出、JSONスナップショット退避 |
+| **Tab 4: 権限・グループ可視化**<br>(Nested Permissions) | `Tab3_Permissions` | `LoadInitialData` | `GroupNestNode`<br>`EffectivePermissionUser` | グループ階層ツリーの再帰展開、循環参照（A ➔ B ➔ A）の自動検知と赤色警告 |
+| **Tab 5: ライフサイクル管理**<br>(Lifecycle Manager) | `Tab4_Lifecycle` | `LoadCsv_Click`<br>`PreviewImport_Click`<br>`ExecuteImport_Click` | `LifecycleService.cs`<br>`LifecycleImportRow` | 社員台帳CSV読み込み、命名規則重複チェック、安全な初期パスワード自動付与、退職者オフボーディング |
+| **Tab 6: GPOスマートマネージャー**<br>(GPO Smart Studio) | `Tab5_Gpo` | `ConvertGpo_Click`<br>`ConfigureGpoLink_Click`<br>`BackupGpo_Click` | `GpoManagerService.cs`<br>`GpoSummary`<br>`GpoPolicyEntry` | 有効設定のフラット一覧、`registry.pol` PRegバイナリパース、Computer ➔ User変換、**OUリンク追加/解除 & セキュリティフィルター（適用グループ）配備** |
+| **Tab 7: JITローカルAdmin**<br>(LAPS JIT Concierge) | `Tab6_Jit` | `RevealJitPassword_Click`<br>`ForceRotateJit_Click`<br>`DeployLapsWizard_Click` | `JitAdminService.cs`<br>`JitDevice`<br>`LapsDeploymentConfig` | LAPSパスワードのマスク表示・安全コピー、作業後の即時再ローテーション強制、**LAPS自動有効化・OU権限配備ウィザード** |
+| **Tab 8: 監査Excelレポート**<br>(J-SOX Audit Report) | `Tab7_Report` | `ExportExcel_Click` | `ExcelAuditReportService.cs` | ClosedXMLベースのJ-SOX・親会社監査提出用 美麗Excel台帳ワンクリック出力 |
+| **ヘッドレス自動テスト** | ― | `App.xaml.cs` (`--test-regression`) | `RegressionTestService.cs` | 9大回帰テスト（PRegバイナリ可逆性、変換除外、JITエントロピー、退避完全性、循環参照検知、Excel生成、LAPS配備、GPOリンク/フィルタ、DNS安全削除）の自動実行 |
 
 ---
 
@@ -54,8 +55,10 @@ UI層は `MainWindow.xaml` / `MainWindow.xaml.cs` に集約され、内部ロジ
    - 一度表示・使用したローカル管理者パスワードは、作業完了時に `ForceImmediateRotation` を呼び出して期限を即座に現在時刻へ変更し、次回再ローテーションを強制しなければならない（平文の使い回しを物理的に防ぐ）。
 4. **アカウント断捨離の安全原則（勝手に削除しない）**:
    - 休眠アカウントや退職者アカウントは直ちに削除せず、必ず元OUおよび所属グループ一覧をJSONスナップショットに保存した上で、退避OUへの移動・無効化にとどめること。
-5. **外部監査役（GPT 5.6 Sol）との品質ゲート運用**:
-   - コード修正後は、必ず `--test-regression` を実行し、全テスト（6/6）が PASSED であることを確認すること。新たなエッジケースが発見された場合は、必ず回帰テストスイートにテスト項目を追加すること。
+5. **DNS安全削除の事前ゾーンバックアップ原則**:
+   - ゾンビDCレコード（SRV残骸）を削除する際は、必ず事前にDNSゾーンのスナップショットJSONを生成・退避してから削除シミュレーションを行うこと。
+6. **外部監査役（GPT 5.6 Sol）との品質ゲート運用**:
+   - コード修正後は、必ず `--test-regression` を実行し、全テスト（9/9）が PASSED であることを確認すること。新たなエッジケースが発見された場合は、必ず回帰テストスイートにテスト項目を追加すること。
 
 ---
 

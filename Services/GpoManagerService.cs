@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using ADMorpher.Models;
 
@@ -24,10 +25,6 @@ namespace ADMorpher.Services
             @"Software\Policies\Microsoft\Windows\NetworkProvider"
         };
 
-        /// <summary>
-        /// registry.pol バイナリを解析してポリシー一覧を取得
-        /// 仕様: [key;value;type;size;data] （すべてUTF-16LEセパレータ）
-        /// </summary>
         public List<GpoPolicyEntry> ParseRegistryPol(byte[] polBytes, string scope = "Machine")
         {
             var entries = new List<GpoPolicyEntry>();
@@ -36,7 +33,6 @@ namespace ADMorpher.Services
             using var ms = new MemoryStream(polBytes);
             using var reader = new BinaryReader(ms, Encoding.Unicode);
 
-            // ヘッダー検査 (8 bytes: "PReg" + Version)
             byte[] sig = reader.ReadBytes(4);
             if (sig.Length < 4 || sig[0] != 'P' || sig[1] != 'R' || sig[2] != 'e' || sig[3] != 'g')
                 throw new InvalidDataException("無効な PReg シグネチャです。");
@@ -45,16 +41,14 @@ namespace ADMorpher.Services
             if (version != HeaderVersion)
                 throw new InvalidDataException($"未サポートの PReg バージョン: {version}");
 
-            // レコード解析
             while (ms.Position < ms.Length)
             {
-                if (ms.Length - ms.Position < 4) break; // 最低ブラケット分もない
+                if (ms.Length - ms.Position < 4) break;
 
                 char startBracket = reader.ReadChar();
                 if (startBracket != '[') continue;
 
                 string key = ReadNullTerminatedString(reader);
-                // セパレータ ';' のスキップ（ReadNullTerminatedStringで消費されなかった場合）
                 ConsumeOptionalSemicolon(reader);
 
                 string value = ReadNullTerminatedString(reader);
@@ -68,7 +62,6 @@ namespace ADMorpher.Services
 
                 byte[] data = reader.ReadBytes((int)size);
 
-                // 末尾の ']' をスキップ
                 while (ms.Position < ms.Length)
                 {
                     char c = reader.ReadChar();
@@ -94,15 +87,11 @@ namespace ADMorpher.Services
             return entries;
         }
 
-        /// <summary>
-        /// ポリシー一覧を registry.pol バイナリにシリアライズ（可逆）
-        /// </summary>
         public byte[] SerializeRegistryPol(IEnumerable<GpoPolicyEntry> entries)
         {
             using var ms = new MemoryStream();
             using var writer = new BinaryWriter(ms, Encoding.Unicode);
 
-            // ヘッダー書き込み
             writer.Write(HeaderSignature);
             writer.Write(HeaderVersion);
 
@@ -150,6 +139,61 @@ namespace ADMorpher.Services
             return (converted, skipped);
         }
 
+        /// <summary>
+        /// GPOリンク変更シミュレーション（OUへのリンク追加・解除・強制設定）
+        /// </summary>
+        public string SimulateGpoLinkChange(GpoSummary gpo, string ouDn, string ouDisplayName, bool enableLink, bool enforce)
+        {
+            var existing = gpo.LinkTargets.FirstOrDefault(l => l.OuDistinguishedName.Equals(ouDn, StringComparison.OrdinalIgnoreCase));
+            if (enableLink)
+            {
+                if (existing == null)
+                {
+                    gpo.LinkTargets.Add(new GpoLinkTarget
+                    {
+                        OuDistinguishedName = ouDn,
+                        OuDisplayName = ouDisplayName,
+                        IsEnabled = true,
+                        IsEnforced = enforce
+                    });
+                }
+                else
+                {
+                    existing.IsEnabled = true;
+                    existing.IsEnforced = enforce;
+                }
+                return $"[シミュレーション] GPO '{gpo.DisplayName}' を OU '{ouDisplayName}' にリンク設定しました (強制: {enforce})。";
+            }
+            else
+            {
+                if (existing != null)
+                {
+                    gpo.LinkTargets.Remove(existing);
+                }
+                return $"[シミュレーション] GPO '{gpo.DisplayName}' の OU '{ouDisplayName}' へのリンクを解除しました。";
+            }
+        }
+
+        /// <summary>
+        /// セキュリティフィルター処理（適用対象グループの絞り込み）シミュレーション
+        /// </summary>
+        public string SimulateSecurityFiltering(GpoSummary gpo, string groupName, bool add)
+        {
+            if (add)
+            {
+                if (!gpo.SecurityFilteringGroups.Contains(groupName))
+                {
+                    gpo.SecurityFilteringGroups.Add(groupName);
+                }
+                return $"[シミュレーション] GPO '{gpo.DisplayName}' の適用対象にグループ '{groupName}' を追加しました。";
+            }
+            else
+            {
+                gpo.SecurityFilteringGroups.Remove(groupName);
+                return $"[シミュレーション] GPO '{gpo.DisplayName}' の適用対象からグループ '{groupName}' を除外しました。";
+            }
+        }
+
         public bool IsMachineOnlyPolicy(string keyPath)
         {
             if (string.IsNullOrWhiteSpace(keyPath)) return false;
@@ -181,12 +225,7 @@ namespace ADMorpher.Services
             while (reader.BaseStream.Position < reader.BaseStream.Length)
             {
                 char c = reader.ReadChar();
-                if (c == '\0') break;
-                if (c == ';')
-                {
-                    // セミコロンで区切られた場合は巻き戻さずに終了
-                    break;
-                }
+                if (c == '\0' || c == ';') break;
                 sb.Append(c);
             }
             return sb.ToString();
@@ -199,7 +238,7 @@ namespace ADMorpher.Services
             char c = reader.ReadChar();
             if (c != ';')
             {
-                reader.BaseStream.Position = pos; // 違ったら戻す
+                reader.BaseStream.Position = pos;
             }
         }
 
@@ -212,9 +251,9 @@ namespace ADMorpher.Services
         private static object? FormatDataValue(uint type, byte[] data)
         {
             if (data == null || data.Length == 0) return null;
-            if (type == 4 && data.Length >= 4) // REG_DWORD
+            if (type == 4 && data.Length >= 4)
                 return BitConverter.ToUInt32(data, 0);
-            if (type == 1) // REG_SZ
+            if (type == 1)
                 return Encoding.Unicode.GetString(data).TrimEnd('\0');
             return BitConverter.ToString(data).Replace("-", " ");
         }
