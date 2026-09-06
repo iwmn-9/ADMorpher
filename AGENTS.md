@@ -47,17 +47,21 @@ UI層は `MainWindow.xaml` / `MainWindow.xaml.cs` に集約され、内部ロジ
 
 後続のAIは、以下の仕様を「不具合」と誤認して勝手に書き換えてはならない。
 
-1. **GPO Computer ➔ User 変換の安全原則（ブラックリスト除外）**:
-   - `GpoManagerService.ConvertMachinePoliciesToUser` は、BitLocker (`Software\Policies\Microsoft\FVE`)、Defenderコア、システムドライバ等のMachine専用キーを絶対にユーザー側へ変換してはならない。必ずブラックリストでスキップし、理由（`ExclusionReason`）を明記すること。
+1. **GPO Computer ➔ User 変換の安全原則（ホワイトリスト＆ブラックリスト二重防御）**:
+   - `GpoManagerService.ConvertMachinePoliciesToUser` は、Edge/Office/Explorer等のホワイトリスト（`UserCompatiblePrefixes`）に適合し、かつBitLocker (`Software\Policies\Microsoft\FVE`)、Defenderコア、システムドライバ等のMachine専用ブラックリスト（`MachineOnlyPrefixes`）に該当しないポリシーのみを安全に変換する。未検証キーは安全のため必ずスキップし、理由（`ExclusionReason`）を明記すること。
 2. **registry.pol PRegバイナリのセパレータ仕様**:
    - PRegレコードフォーマットは `[key;value;type;size;data]` であり、区切り文字 `;` は UTF-16LE（2バイト）として扱われる。パースおよびシリアライズの可逆性を崩してはならない。
 3. **JITローカル管理者の即時ローテーション（JIT保証）**:
    - 一度表示・使用したローカル管理者パスワードは、作業完了時に `ForceImmediateRotation` を呼び出して期限を即座に現在時刻へ変更し、次回再ローテーションを強制しなければならない（平文の使い回しを物理的に防ぐ）。
 4. **アカウント断捨離の安全原則（勝手に削除しない）**:
-   - 休眠アカウントや退職者アカウントは直ちに削除せず、必ず元OUおよび所属グループ一覧をJSONスナップショットに保存した上で、退避OUへの移動・無効化にとどめること。
+   - 休眠アカウントや退職者アカウントは直ちに削除せず、必ず元OUおよび所属グループ一覧をJSONスナップショットに保存した上で、退避OUへの移動・無効化にとどめること。またUI（`QuarantineSelected_Click`）は全件隔離事故を防ぐため、必ず `IsSelected` のみ対象とすること。
 5. **DNS安全削除の事前ゾーンバックアップ原則**:
    - ゾンビDCレコード（SRV残骸）を削除する際は、必ず事前にDNSゾーンのスナップショットJSONを生成・退避してから削除シミュレーションを行うこと。
-6. **外部監査役（GPT 5.6 Sol）との品質ゲート運用**:
+6. **Windows LAPS BackupDirectory の仕様（Microsoft Learn準拠）**:
+   - 0 = Disabled, 1 = Microsoft Entra ID (Azure AD), **2 = Active Directory**。オンプレミスAD配備時は必ず `ValueData = 2u` を指定し、`SELF` 書き込み権限と監査グループ読み取り権限を正しく設定すること。
+7. **単一EXE配布とEDR（Cybereason）対策**:
+   - 配布用EXEが172MBになるのは .NET 8 ランタイムおよびWPF描画エンジンを完全自己完結内包しているため。圧縮オプション（`EnableCompressionInSingleFile`）を付与すると75MBまで圧縮可能だが、現場環境の **Cybereason（EDR）** によるメモリアンパック時の誤検知（Malop）を物理回避するため、**あえて非圧縮172MBを確定仕様**とする。
+8. **外部監査役（GPT 5.6 Sol）との品質ゲート運用**:
    - コード修正後は、必ず `--test-regression` を実行し、全テスト（9/9）が PASSED であることを確認すること。新たなエッジケースが発見された場合は、必ず回帰テストスイートにテスト項目を追加すること。
 
 ---

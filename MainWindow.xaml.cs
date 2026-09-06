@@ -98,15 +98,22 @@ namespace ADMorpher
 
         private void QuarantineSelected_Click(object sender, RoutedEventArgs e)
         {
+            var selected = _hygieneItems.Where(i => i.IsSelected).ToList();
+            if (selected.Count == 0)
+            {
+                MessageBox.Show("退避対象のアカウントが選択されていません。チェックボックスで対象を選択してください。", "対象未選択", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             string snapDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ADMorpher", "Snapshots");
             int count = 0;
-            foreach (var item in _hygieneItems)
+            foreach (var item in selected)
             {
                 _accountHygieneService.CreateQuarantineSnapshot(item, "OU=Quarantine,DC=corp,DC=example,DC=local", snapDir);
                 count++;
             }
-            SetStatus($"安全退避完了: {count} 件のアカウント所属スナップショットを保存し退避OUへ移動シミュレーション完了。");
-            MessageBox.Show($"全 {count} 件のアカウントについて、グループ所属情報をバックアップ保存し、安全に退避OUへ移動するシミュレーションを実行しました。\n\n保存先: {snapDir}", "安全退避完了", MessageBoxButton.OK, MessageBoxImage.Information);
+            SetStatus($"安全退避完了: {count} 件の選択アカウントの所属スナップショットを保存し退避OUへ移動シミュレーション完了。");
+            MessageBox.Show($"選択された {count} 件のアカウントについて、グループ所属情報をバックアップ保存し、安全に退避OUへ移動するシミュレーションを実行しました。\n\n保存先: {snapDir}", "安全退避完了", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void OpenSnapshotsDir_Click(object sender, RoutedEventArgs e)
@@ -120,9 +127,9 @@ namespace ADMorpher
         private void LoadCsv_Click(object sender, RoutedEventArgs e)
         {
             string sampleCsv = @"氏名,部署,役職,アカウント名,初期パスワード
-佐藤 健太,Sales,マネージャー,sato.kenta,
-高橋 美咲,Development,エンジニア,takahashi.m,
-田中 雄大,HR,スペシャリスト,,";
+Alex Taylor,Sales,マネージャー,alex.taylor,
+Jordan Smith,Development,エンジニア,jordan.s,
+Morgan Lee,HR,スペシャリスト,,";
 
             var rows = _lifecycleService.ParseCsv(sampleCsv);
             CsvDataGrid.ItemsSource = rows;

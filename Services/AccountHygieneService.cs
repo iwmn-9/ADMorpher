@@ -9,7 +9,7 @@ namespace ADMorpher.Services
     public class AccountHygieneService
     {
         /// <summary>
-        /// アカウントの安全退避スナップショットをJSONに永続化（ロールバック・監査台帳用）
+        /// アカウントの安全退避スナップショットをJSONに永続化（実所属グループを忠実にバックアップ）
         /// </summary>
         public string CreateQuarantineSnapshot(AccountHygieneItem item, string quarantineOu, string outputDirectory)
         {
@@ -21,7 +21,7 @@ namespace ADMorpher.Services
                 UserPrincipalName = item.UserPrincipalName,
                 OriginalOu = item.OuPath,
                 QuarantineOu = quarantineOu,
-                OriginalGroups = new List<string> { "Domain Users", "Sales-Dept-Group", "FileServer-ReadWrite" }
+                OriginalGroups = new List<string>(item.CurrentGroups.Count > 0 ? item.CurrentGroups : new List<string> { "Domain Users" })
             };
 
             string filename = $"Snapshot_{item.SamAccountName}_{DateTime.Now:yyyyMMdd_HHmmss}.json";

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
@@ -105,7 +105,7 @@ namespace ADMorpher.Services
                 KeyPath = @"Software\Policies\Microsoft\Windows\LAPS",
                 ValueName = "BackupDirectory",
                 Type = 4,
-                ValueData = 1u, // 1 = Active Directory
+                ValueData = 2u, // 2 = Active Directory (0=Disabled, 1=Entra ID, 2=AD)
                 FriendlyName = "LAPS バックアップ先 (Active Directory)",
                 CanConvertToUser = false
             });

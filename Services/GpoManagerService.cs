@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -23,6 +23,18 @@ namespace ADMorpher.Services
             @"Software\Policies\Microsoft\Cryptography",
             @"Software\Policies\Microsoft\Windows\System\Logon",
             @"Software\Policies\Microsoft\Windows\NetworkProvider"
+        };
+
+        // ユーザー構成としての動作・互換性が証明されているホワイトリストキー（Edge, Chrome, Office, Explorer等）
+        private static readonly string[] UserCompatiblePrefixes = new[]
+        {
+            @"Software\Policies\Microsoft\Edge",
+            @"Software\Policies\Google\Chrome",
+            @"Software\Policies\Microsoft\Office",
+            @"Software\Policies\Microsoft\Windows\CurrentVersion\Policies\Explorer",
+            @"Software\Policies\Microsoft\Windows\CurrentVersion\Policies\System",
+            @"Software\Policies\Microsoft\Windows\Control Panel",
+            @"Software\Policies\Microsoft\Windows\Explorer"
         };
 
         public List<GpoPolicyEntry> ParseRegistryPol(byte[] polBytes, string scope = "Machine")
@@ -122,10 +134,10 @@ namespace ADMorpher.Services
 
             foreach (var policy in machinePolicies)
             {
-                if (IsMachineOnlyPolicy(policy.KeyPath))
+                if (!CanSafelyConvertToUser(policy.KeyPath, out string reason))
                 {
                     var skippedCopy = ClonePolicy(policy);
-                    skippedCopy.ExclusionReason = "コンピューター専用ポリシー（ハードウェア/暗号/OS基盤）のためユーザー構成への移植は安全に除外されました。";
+                    skippedCopy.ExclusionReason = reason;
                     skipped.Add(skippedCopy);
                     continue;
                 }
@@ -205,17 +217,54 @@ namespace ADMorpher.Services
             return false;
         }
 
+        public bool IsUserCompatiblePolicy(string keyPath)
+        {
+            if (string.IsNullOrWhiteSpace(keyPath)) return false;
+            foreach (var prefix in UserCompatiblePrefixes)
+            {
+                if (keyPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
+
+        public bool CanSafelyConvertToUser(string keyPath, out string reason)
+        {
+            if (IsMachineOnlyPolicy(keyPath))
+            {
+                reason = "コンピューター専用ポリシー（ハードウェア/暗号/OS基盤）のためユーザー構成への移植は安全に除外されました。";
+                return false;
+            }
+
+            if (!IsUserCompatiblePolicy(keyPath))
+            {
+                reason = "ユーザー構成への対応が未実証または未サポートのポリシー（ホワイトリスト外）のため安全に除外されました。";
+                return false;
+            }
+
+            reason = "ホワイトリスト検証済み（ユーザー構成として安全に適用可能）";
+            return true;
+        }
+
         private void EvaluateConversionFeasibility(GpoPolicyEntry entry)
         {
-            if (entry.Scope == "Machine" && IsMachineOnlyPolicy(entry.KeyPath))
+            if (entry.Scope == "Machine")
             {
-                entry.CanConvertToUser = false;
-                entry.ExclusionReason = "マシン専用アーキテクチャ（BitLocker/セキュリティコア等）のため変換不可";
+                if (CanSafelyConvertToUser(entry.KeyPath, out string reason))
+                {
+                    entry.CanConvertToUser = true;
+                    entry.ExclusionReason = reason;
+                }
+                else
+                {
+                    entry.CanConvertToUser = false;
+                    entry.ExclusionReason = reason;
+                }
             }
             else
             {
                 entry.CanConvertToUser = true;
-                entry.ExclusionReason = "移植可能";
+                entry.ExclusionReason = "ユーザーポリシー（変換不要）";
             }
         }
 

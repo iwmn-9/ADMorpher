@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using ADMorpher.Models;
@@ -45,19 +45,21 @@ namespace ADMorpher.Services
             }
             catch (Exception ex) { Console.WriteLine($"FAILED: {ex.Message}"); }
 
-            // TEST 2: Computer ➔ User 変換時のブラックリスト除外
+            // TEST 2: Computer ➔ User 変換時のホワイトリスト検証・ブラックリスト安全除外
             try
             {
-                Console.Write("[TEST 2/9] Machine ➔ User ポリシー変換時のブラックリスト除外検査 ... ");
+                Console.Write("[TEST 2/9] Machine ➔ User ポリシー変換時のホワイトリスト検証・安全除外検査 ... ");
                 var testPolicies = new[]
                 {
-                    new GpoPolicyEntry { KeyPath = @"Software\Policies\Microsoft\FVE", ValueName = "BitLockerEnforce", Type = 4, ValueData = 1u },
-                    new GpoPolicyEntry { KeyPath = @"Software\Policies\Microsoft\Edge", ValueName = "Homepage", Type = 1, ValueData = "https://example.com" }
+                    new GpoPolicyEntry { KeyPath = @"Software\Policies\Microsoft\FVE", ValueName = "BitLockerEnforce", Type = 4, ValueData = 1u }, // ブラックリスト（FVE）
+                    new GpoPolicyEntry { KeyPath = @"Software\Policies\UnknownVendor\CustomSecurity", ValueName = "CustomVal", Type = 4, ValueData = 99u }, // ホワイトリスト外
+                    new GpoPolicyEntry { KeyPath = @"Software\Policies\Microsoft\Edge", ValueName = "Homepage", Type = 1, ValueData = "https://example.com" } // ホワイトリスト適合（Edge）
                 };
 
                 var (converted, skipped) = gpoService.ConvertMachinePoliciesToUser(testPolicies);
-                if (converted.Count != 1 || skipped.Count != 1) throw new Exception("変換/除外比率異常");
+                if (converted.Count != 1 || skipped.Count != 2) throw new Exception($"変換/除外比率異常: 変換={converted.Count}, 除外={skipped.Count}");
                 if (skipped[0].KeyPath != @"Software\Policies\Microsoft\FVE") throw new Exception("BitLocker非除外");
+                if (!skipped[1].ExclusionReason!.Contains("ホワイトリスト外")) throw new Exception("未実証キーのホワイトリスト除外失敗");
                 if (converted[0].Scope != "User") throw new Exception("スコープ未変更");
 
                 Console.WriteLine("PASSED");
@@ -97,13 +99,20 @@ namespace ADMorpher.Services
             }
             catch (Exception ex) { Console.WriteLine($"FAILED: {ex.Message}"); }
 
-            // TEST 5: グループネスト循環参照検知
+            // TEST 5: グループネスト循環参照検知 (DFS深さ優先探索アルゴリズム動的検査)
             try
             {
-                Console.Write("[TEST 5/9] グループネスト構造・循環参照検知検査 ... ");
+                Console.Write("[TEST 5/9] グループネスト循環参照 DFSアルゴリズム動的追跡検査 ... ");
                 var tree = mockService.GetMockGroupNestHierarchy();
-                if (!FindCircularNode(tree)) throw new Exception("循環参照未検知");
-                Console.WriteLine("PASSED");
+
+                bool hasCycle = DetectCircularReferencesDfs(tree, new System.Collections.Generic.HashSet<string>(), out string cycleDescription);
+                if (!hasCycle) throw new Exception("DFSアルゴリズムによる循環参照未検知");
+                if (!cycleDescription.Contains("循環検知")) throw new Exception("循環パス生成異常");
+
+                // 静的フラグとの整合性も確認
+                if (!FindCircularFlagNode(tree)) throw new Exception("ノードのHasCircularReferenceフラグ不整合");
+
+                Console.WriteLine($"PASSED ({cycleDescription})");
                 passedTests++;
             }
             catch (Exception ex) { Console.WriteLine($"FAILED: {ex.Message}"); }
@@ -122,7 +131,7 @@ namespace ADMorpher.Services
             }
             catch (Exception ex) { Console.WriteLine($"FAILED: {ex.Message}"); }
 
-            // TEST 7: LAPS有効化・OU権限配備シミュレーション検査
+            // TEST 7: LAPS有効化・OU権限配備シミュレーション検査 (BackupDirectory=2u 検証含む)
             try
             {
                 Console.Write("[TEST 7/9] LAPS有効化・OU権限配備シミュレーション検査 ... ");
@@ -138,9 +147,11 @@ namespace ADMorpher.Services
                 if (!summary.Contains("OU=Computers") || !script.Contains("Set-LapsADComputerSelfPermission"))
                     throw new Exception("LAPS配備スクリプト生成異常");
                 if (gpo.Policies.Count != 3 || gpo.Policies[1].ValueData!.ToString() != "20")
-                    throw new Exception("LAPS GPO生成異常");
+                    throw new Exception("LAPS GPO生成異常 (ポリシー件数/パスワード長不一致)");
+                if ((uint)gpo.Policies[2].ValueData! != 2u)
+                    throw new Exception("LAPS GPO生成異常 (BackupDirectory != 2 / Active Directory)");
 
-                Console.WriteLine("PASSED");
+                Console.WriteLine("PASSED (AD BackupDirectory=2u 整合確認)");
                 passedTests++;
             }
             catch (Exception ex) { Console.WriteLine($"FAILED: {ex.Message}"); }
@@ -190,12 +201,40 @@ namespace ADMorpher.Services
             return passedTests == totalTests ? 0 : 1;
         }
 
-        private static bool FindCircularNode(GroupNestNode node)
+        /// <summary>
+        /// DFS（深さ優先探索）により、探索経路（HashSet）を追跡しながら循環参照ノードを動的に検知する。
+        /// </summary>
+        private static bool DetectCircularReferencesDfs(GroupNestNode node, System.Collections.Generic.HashSet<string> currentPath, out string cyclePath)
         {
+            if (currentPath.Contains(node.GroupName))
+            {
+                cyclePath = $"{string.Join(" ➔ ", currentPath)} ➔ {node.GroupName} (循環検知)";
+                return true;
+            }
+
+            var nextPath = new System.Collections.Generic.HashSet<string>(currentPath, StringComparer.OrdinalIgnoreCase) { node.GroupName };
+            foreach (var child in node.Children)
+            {
+                if (DetectCircularReferencesDfs(child, nextPath, out cyclePath))
+                {
+                    return true;
+                }
+            }
+
+            cyclePath = string.Empty;
+            return false;
+        }
+
+        private static bool FindCircularFlagNode(GroupNestNode node, System.Collections.Generic.HashSet<GroupNestNode>? visited = null)
+        {
+            visited ??= new System.Collections.Generic.HashSet<GroupNestNode>();
+            if (visited.Contains(node)) return false;
+            visited.Add(node);
+
             if (node.HasCircularReference) return true;
             foreach (var child in node.Children)
             {
-                if (FindCircularNode(child)) return true;
+                if (FindCircularFlagNode(child, visited)) return true;
             }
             return false;
         }

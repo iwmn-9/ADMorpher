@@ -1,12 +1,14 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using ADMorpher.Models;
 
 namespace ADMorpher.Services
 {
-    public class MockAdService
+    public class MockAdService : IAdDataProvider
     {
-        public AdHealthReport GetMockHealthReport()
+        public bool IsLiveEnvironment => false;
+
+        public AdHealthReport GetHealthReport()
         {
             var report = new AdHealthReport
             {
@@ -20,7 +22,7 @@ namespace ADMorpher.Services
             {
                 HostName = "DC01.corp.example.local",
                 IpAddress = "192.168.10.11",
-                SiteName = "Tokyo-HQ",
+                SiteName = "Default-Site-HQ",
                 IsOnline = true,
                 ReplicationStatus = "健全 (同期済)",
                 LastSyncTime = DateTime.Now.AddMinutes(-3),
@@ -31,7 +33,7 @@ namespace ADMorpher.Services
             {
                 HostName = "DC02.corp.example.local",
                 IpAddress = "192.168.10.12",
-                SiteName = "Tokyo-HQ",
+                SiteName = "Default-Site-HQ",
                 IsOnline = true,
                 ReplicationStatus = "健全 (同期済)",
                 LastSyncTime = DateTime.Now.AddMinutes(-5),
@@ -50,7 +52,7 @@ namespace ADMorpher.Services
             report.DhcpScopes.Add(new DhcpScopeInfo
             {
                 ScopeId = "192.168.20.0",
-                Name = "本社 クライアントPC Wi-Fi / 有線",
+                Name = "HQ Client Subnet Wi-Fi / LAN",
                 SubnetMask = "255.255.255.0",
                 TotalAddresses = 240,
                 InUseAddresses = 222
@@ -59,7 +61,7 @@ namespace ADMorpher.Services
             report.DhcpScopes.Add(new DhcpScopeInfo
             {
                 ScopeId = "192.168.30.0",
-                Name = "大阪支社 クライアントPC",
+                Name = "Branch Office Subnet",
                 SubnetMask = "255.255.255.0",
                 TotalAddresses = 120,
                 InUseAddresses = 72
@@ -68,7 +70,7 @@ namespace ADMorpher.Services
             return report;
         }
 
-        public List<DnsRecordItem> GetMockDnsRecords()
+        public List<DnsRecordItem> GetDnsRecords()
         {
             return new List<DnsRecordItem>
             {
@@ -107,7 +109,7 @@ namespace ADMorpher.Services
             };
         }
 
-        public List<DhcpReservationItem> GetMockDhcpReservations()
+        public List<DhcpReservationItem> GetDhcpReservations()
         {
             return new List<DhcpReservationItem>
             {
@@ -116,8 +118,8 @@ namespace ADMorpher.Services
                     ScopeId = "192.168.20.0",
                     IpAddress = "192.168.20.201",
                     MacAddress = "00-15-5D-12-34-56",
-                    ReservationName = "Old-Color-MFP-Ricoh (撤去済)",
-                    Description = "2023年撤去複合機。固定IPが解放されずに残存",
+                    ReservationName = "Retired-Legacy-Device",
+                    Description = "撤去済み機器の残骸。固定IPが解放されずに残存",
                     LastActiveDate = DateTime.Now.AddDays(-240),
                     IsOrphaned = true
                 },
@@ -126,35 +128,37 @@ namespace ADMorpher.Services
                     ScopeId = "192.168.20.0",
                     IpAddress = "192.168.20.205",
                     MacAddress = "00-15-5D-78-9A-BC",
-                    ReservationName = "HQ-Reception-iPad",
-                    Description = "総合受付用端末",
+                    ReservationName = "Reception-Kiosk",
+                    Description = "受付用キオスク端末",
                     LastActiveDate = DateTime.Now.AddDays(-1),
                     IsOrphaned = false
                 }
             };
         }
 
-        public List<AccountHygieneItem> GetMockHygieneItems()
+        public List<AccountHygieneItem> GetHygieneItems()
         {
             return new List<AccountHygieneItem>
             {
                 new AccountHygieneItem
                 {
-                    SamAccountName = "yamada.t",
-                    DisplayName = "山田 太郎",
-                    UserPrincipalName = "yamada.t@corp.example.local",
+                    SamAccountName = "alex.t",
+                    DisplayName = "Alex Taylor (Sample)",
+                    UserPrincipalName = "alex.t@corp.example.local",
                     ObjectType = "User",
                     IsEnabled = true,
                     LastLogonDate = DateTime.Now.AddDays(-210),
                     PasswordNeverExpires = true,
                     DoesNotRequirePreAuth = false,
                     OuPath = "OU=Sales,OU=Users,DC=corp,DC=example,DC=local",
-                    RiskTags = new List<string> { "休眠(210日)", "パスワード無期限" }
+                    RiskTags = new List<string> { "休眠(210日)", "パスワード無期限" },
+                    CurrentGroups = new List<string> { "Domain Users", "Sales-General", "VPN-Users" },
+                    IsSelected = false
                 },
                 new AccountHygieneItem
                 {
                     SamAccountName = "svc_scanner",
-                    DisplayName = "複合機スキャン用 共有アカウント",
+                    DisplayName = "MFP Scanner Service Account",
                     UserPrincipalName = "svc_scanner@corp.example.local",
                     ObjectType = "User",
                     IsEnabled = true,
@@ -162,38 +166,44 @@ namespace ADMorpher.Services
                     PasswordNeverExpires = true,
                     DoesNotRequirePreAuth = true,
                     OuPath = "OU=ServiceAccounts,DC=corp,DC=example,DC=local",
-                    RiskTags = new List<string> { "Kerberos事前認証不要(危険)", "パスワード無期限" }
+                    RiskTags = new List<string> { "Kerberos事前認証不要(危険)", "パスワード無期限" },
+                    CurrentGroups = new List<string> { "Domain Users", "ServiceAccounts-Group" },
+                    IsSelected = false
                 },
                 new AccountHygieneItem
                 {
-                    SamAccountName = "sato.retired",
-                    DisplayName = "佐藤 次郎 (退職済)",
-                    UserPrincipalName = "sato.retired@corp.example.local",
+                    SamAccountName = "jordan.retired",
+                    DisplayName = "Jordan Smith (Retired)",
+                    UserPrincipalName = "jordan.retired@corp.example.local",
                     ObjectType = "User",
                     IsEnabled = false,
                     LastLogonDate = DateTime.Now.AddDays(-140),
                     PasswordNeverExpires = false,
                     DoesNotRequirePreAuth = false,
                     OuPath = "OU=Development,OU=Users,DC=corp,DC=example,DC=local",
-                    RiskTags = new List<string> { "無効化放置(グループ所属残存)" }
+                    RiskTags = new List<string> { "無効化放置(グループ所属残存)" },
+                    CurrentGroups = new List<string> { "Domain Users", "Dev-Lead-Group", "Git-Committers" },
+                    IsSelected = true // サンプルとして選択状態
                 },
                 new AccountHygieneItem
                 {
-                    SamAccountName = "PC-OLD-XP01$",
-                    DisplayName = "PC-OLD-XP01$",
-                    UserPrincipalName = "PC-OLD-XP01$@corp.example.local",
+                    SamAccountName = "PC-LEGACY-01$",
+                    DisplayName = "PC-LEGACY-01$",
+                    UserPrincipalName = "PC-LEGACY-01$@corp.example.local",
                     ObjectType = "Computer",
                     IsEnabled = true,
                     LastLogonDate = DateTime.Now.AddDays(-450),
                     PasswordNeverExpires = false,
                     DoesNotRequirePreAuth = false,
                     OuPath = "OU=Computers,DC=corp,DC=example,DC=local",
-                    RiskTags = new List<string> { "休眠PC(450日未ログオン)" }
+                    RiskTags = new List<string> { "休眠PC(450日未ログオン)" },
+                    CurrentGroups = new List<string> { "Domain Computers" },
+                    IsSelected = false
                 }
             };
         }
 
-        public GroupNestNode GetMockGroupNestHierarchy()
+        public GroupNestNode GetGroupNestHierarchy()
         {
             var root = new GroupNestNode
             {
@@ -212,7 +222,7 @@ namespace ADMorpher.Services
                 Sid = "S-1-5-21-123456789-123456789-123456789-1101",
                 Description = "サーバー監視運用アカウント群",
                 IsPrivileged = true,
-                DirectMembers = new List<string> { "tanaka_secops" }
+                DirectMembers = new List<string> { "operator_secops" }
             };
 
             var devGroup = new GroupNestNode
@@ -222,27 +232,41 @@ namespace ADMorpher.Services
                 Sid = "S-1-5-21-123456789-123456789-123456789-1102",
                 Description = "開発リードグループ",
                 IsPrivileged = false,
-                DirectMembers = new List<string> { "suzuki.dev" }
+                DirectMembers = new List<string> { "developer_lead" }
             };
 
-            var circularNode = new GroupNestNode
+            var circularNodeA = new GroupNestNode
             {
-                GroupName = "Circular-Ref-Group-A",
-                SamAccountName = "Circular-Ref-Group-A",
-                Sid = "S-1-5-21-123456789-123456789-123456789-9999",
-                Description = "相互参照テスト用グループ",
+                GroupName = "Circular-Group-A",
+                SamAccountName = "Circular-Group-A",
+                Sid = "S-1-5-21-123456789-123456789-123456789-9991",
+                Description = "相互参照テストグループA",
                 HasCircularReference = true,
-                DirectMembers = new List<string> { "Circular-Ref-Group-B" }
+                DirectMembers = new List<string> { "Circular-Group-B" }
             };
+
+            var circularNodeB = new GroupNestNode
+            {
+                GroupName = "Circular-Group-B",
+                SamAccountName = "Circular-Group-B",
+                Sid = "S-1-5-21-123456789-123456789-123456789-9992",
+                Description = "相互参照テストグループB",
+                HasCircularReference = true,
+                DirectMembers = new List<string> { "Circular-Group-A" }
+            };
+
+            circularNodeA.Children.Add(circularNodeB);
+            // 循環参照リンク（Bの子にAを接続）
+            circularNodeB.Children.Add(circularNodeA);
 
             root.Children.Add(secGroup);
             secGroup.Children.Add(devGroup);
-            devGroup.Children.Add(circularNode);
+            devGroup.Children.Add(circularNodeA);
 
             return root;
         }
 
-        public List<GpoSummary> GetMockGpos()
+        public List<GpoSummary> GetGpos()
         {
             var gpos = new List<GpoSummary>();
 
@@ -250,14 +274,14 @@ namespace ADMorpher.Services
             {
                 DisplayName = "Corp-Security-Baseline-2026",
                 Status = "AllEnabled",
-                LinkedOus = "OU=Tokyo-HQ,DC=corp,DC=example,DC=local",
+                LinkedOus = "OU=Default-Site-HQ,DC=corp,DC=example,DC=local",
                 ActivePolicyCount = 3,
                 SecurityFilteringGroups = new List<string> { "Domain Computers", "Domain Admins" }
             };
             gpo1.LinkTargets.Add(new GpoLinkTarget
             {
-                OuDisplayName = "東京本社 (Tokyo-HQ)",
-                OuDistinguishedName = "OU=Tokyo-HQ,DC=corp,DC=example,DC=local",
+                OuDisplayName = "Default Site HQ",
+                OuDistinguishedName = "OU=Default-Site-HQ,DC=corp,DC=example,DC=local",
                 IsEnabled = true,
                 IsEnforced = false
             });
@@ -303,7 +327,7 @@ namespace ADMorpher.Services
             return gpos;
         }
 
-        public List<JitDevice> GetMockJitDevices()
+        public List<JitDevice> GetJitDevices()
         {
             return new List<JitDevice>
             {
@@ -329,5 +353,14 @@ namespace ADMorpher.Services
                 }
             };
         }
+
+        // 後方互換用エイリアス
+        public AdHealthReport GetMockHealthReport() => GetHealthReport();
+        public List<DnsRecordItem> GetMockDnsRecords() => GetDnsRecords();
+        public List<DhcpReservationItem> GetMockDhcpReservations() => GetDhcpReservations();
+        public List<AccountHygieneItem> GetMockHygieneItems() => GetHygieneItems();
+        public GroupNestNode GetMockGroupNestHierarchy() => GetGroupNestHierarchy();
+        public List<GpoSummary> GetMockGpos() => GetGpos();
+        public List<JitDevice> GetMockJitDevices() => GetJitDevices();
     }
 }

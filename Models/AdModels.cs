@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
@@ -89,6 +89,7 @@ namespace ADMorpher.Models
         public string OuPath { get; set; } = "";
         public List<string> RiskTags { get; set; } = new();
         public string RiskTagsString => string.Join(", ", RiskTags);
+        public List<string> CurrentGroups { get; set; } = new();
         public bool IsSelected { get; set; } = false;
     }
 
