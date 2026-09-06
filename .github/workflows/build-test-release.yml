@@ -1,4 +1,4 @@
-﻿name: Build, Test & Release
+name: Build, Test & Release
 
 on:
   push:
@@ -6,6 +6,9 @@ on:
     tags: [ "v*" ]
   pull_request:
     branches: [ "main", "master" ]
+
+permissions:
+  contents: write
 
 jobs:
   build-and-test:
